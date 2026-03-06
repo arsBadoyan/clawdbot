@@ -43,15 +43,36 @@ FROM node:22-bookworm
 ENV NODE_ENV=production
 
 # Add vdirsyncer + khal for CalDAV workflows
+# + libasound2 is required by sag binary
 RUN apt-get update \
 && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
 ca-certificates \
 tini \
+curl \
+tar \
 python3 \
 python3-venv \
 vdirsyncer \
 khal \
+libasound2 \
 && rm -rf /var/lib/apt/lists/*
+
+# Install sag (ElevenLabs CLI TTS)
+ARG SAG_VERSION=0.2.2
+RUN set -eux; \
+arch="$(dpkg --print-architecture)"; \
+case "$arch" in \
+amd64) sag_arch="linux_amd64" ;; \
+arm64) sag_arch="linux_arm64" ;; \
+*) echo "Unsupported arch: $arch" && exit 1 ;; \
+esac; \
+url="https://github.com/steipete/sag/releases/download/v${SAG_VERSION}/sag_${SAG_VERSION}_${sag_arch}.tar.gz"; \
+curl -fL "$url" -o /tmp/sag.tar.gz; \
+mkdir -p /tmp/sagx; \
+tar -xzf /tmp/sag.tar.gz -C /tmp/sagx; \
+install -m 0755 /tmp/sagx/sag /usr/local/bin/sag; \
+rm -rf /tmp/sag.tar.gz /tmp/sagx; \
+sag --version
 
 # openclaw update expects pnpm. Provide it in runtime image.
 RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
